@@ -1,0 +1,5 @@
+#ifndef ZSTD_ALGORITHM_H_
+#define ZSTD_ALGORITHM_H_
+
+
+#endif  // ZSTD_ALGORITHM_H_
