@@ -2,7 +2,8 @@
 #define ZSTD_INTERNAL_MEMORY_CONSTRUCT_DESTROY_H_
 
 #include "addressof.h"
-// #include "allocator_traits.h"
+#include "allocator_traits.h"
+#include "allocator.h"
 
 #include "../utility/forward.h"
 #include "../iterator/iterator_traits.h"
@@ -44,19 +45,19 @@ inline void destroy(ForwardIterator first, ForwardIterator last) {
   Destroy<__has_trivial_destructor(Value)>::destroy(first, last);
 }
 
-// template <typename ForwardIterator, typename Allocator>
-// void destroy(ForwardIterator first, ForwardIterator last, Allocator& alloc) {
-//   for (; first != last; ++first) {
-//     typename zstd::allocator_traits<Allocator>::destroy(
-//       alloc, zstd::addressof(*first));
-//   }
-// }
+template <typename ForwardIterator, typename Allocator>
+void destroy(ForwardIterator first, ForwardIterator last, Allocator& alloc) {
+  for (; first != last; ++first) {
+    typename zstd::allocator_traits<Allocator>::destroy(
+      alloc, zstd::addressof(*first));
+  }
+}
 
-// template <typename ForwardIterator, typename Tp>
-// inline void destroy(ForwardIterator first, ForwardIterator last, 
-//                     zstd::allocator<Tp>&) {
-//   zstd::internal::destroy(first, last);
-// }
+template <typename ForwardIterator, typename Tp>
+inline void destroy(ForwardIterator first, ForwardIterator last, 
+                    zstd::allocator<Tp>&) {
+  zstd::internal::destroy(first, last);
+}
 
 }  // namespace internal
 }  // namespace zstd

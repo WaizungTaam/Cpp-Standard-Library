@@ -44,6 +44,9 @@ using is_nothrow_constructible = std::is_nothrow_constructible<Tp, Args...>;
 /* is_trivially_default_constructible */
 
 /* is_nothrow_default_constructible */
+template <typename Tp>
+using is_nothrow_default_constructible = 
+      std::is_nothrow_default_constructible<Tp>;
 
 
 

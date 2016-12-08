@@ -23,7 +23,7 @@ struct is_base_of :
 /* is_convertible */
 namespace internal {
 template <typename From, typename To, 
-          bool = internal::or<
+          bool = internal::or_t<
           zstd::is_void<From>, 
           zstd::is_function<To>, 
           zstd::is_array<To>>::value>

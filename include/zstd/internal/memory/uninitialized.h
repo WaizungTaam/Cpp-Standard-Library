@@ -57,6 +57,31 @@ struct Uninitialized {
       throw;
     }
   }
+  // Use default_ instead of default to avoid keyword
+  template <typename ForwardIterator>
+  static void default_(ForwardIterator first, ForwardIterator last) {
+    ForwardIterator current = first;
+    try {
+      for (; current != last; ++current) {
+        zstd::internal::construct(zstd::addressof(*current));
+      }
+    } catch (...) {
+      zstd::internal::destroy(first, current);
+      throw;
+    }
+  }
+  template <typename ForwardIterator, typename Size>
+  static void default_n(ForwardIterator first, Size n) {
+    ForwardIterator current = first;
+    try {
+      for (; n > 0; --n, ++current) {
+        zstd::internal::construct(zstd::addressof(*current));
+      }
+    } catch (...) {
+      zstd::internal::destroy(first, current);
+      throw;
+    }
+  }
 };
 
 template <>
@@ -73,6 +98,16 @@ struct Uninitialized<true> {
   template <typename ForwardIterator, typename Size, typename Tp>
   static void fill_n(ForwardIterator first, Size n, const Tp& value) {
     zstd::fill_n(first, n, value);
+  }
+  template <typename ForwardIterator>
+  static void default_(ForwardIterator first, ForwardIterator last) {
+    zstd::fill(first, last, 
+      typename zstd::iterator_traits<ForwardIterator>::value_type());
+  }
+  template <typename ForwardIterator, typename Size>
+  static void default_n(ForwardIterator first, Size n) {
+    zstd::fill_n(first, n,
+      typename zstd::iterator_traits<ForwardIterator>::value_type());
   }
 };
 
@@ -118,7 +153,6 @@ inline void uninitialized_fill_n(ForwardIterator first, Size n,
 }
 
 
-/* Allocator versions of uninitialized functions */
 namespace internal {
 
 /* uninitialized_copy_alloc */
@@ -198,7 +232,7 @@ inline ForwardIterator uninitialized_move_alloc(InputIterator first,
 
 template <typename InputIterator, typename ForwardIterator,
           typename Allocator>
-inline ForwardIterator uninitialized_move_if_no_except_alloc(
+inline ForwardIterator uninitialized_move_if_noexcept_alloc(
   InputIterator first, InputIterator last, ForwardIterator result,
   Allocator& alloc) {
   return uninitialized_copy_alloc(
@@ -272,6 +306,71 @@ inline void uninitialized_move_fill(InputIterator first1, InputIterator last1,
     throw;
   }
 }
+
+/* uninitialized_default */
+template <typename ForwardIterator>
+inline void uninitialized_default(ForwardIterator first, 
+                                  ForwardIterator last) {
+  typedef typename zstd::iterator_traits<ForwardIterator>::value_type
+          Value;
+  const bool condition = zstd::is_trivial<Value>::value &&
+                         zstd::is_copy_assignable<Value>::value;
+  Uninitialized<condition>::default_(first, last);
+}
+
+/* uninitialized_default_n */
+template <typename ForwardIterator, typename Size>
+inline void uninitialized_default_n(ForwardIterator first, Size n) {
+  typedef typename zstd::iterator_traits<ForwardIterator>::value_type
+          Value;
+  const bool condition = zstd::is_trivial<Value>::value &&
+                         zstd::is_copy_assignable<Value>::value;
+  Uninitialized<condition>::default_n(first, n);
+}
+
+/* uninitialized_default_alloc */
+template <typename ForwardIterator, typename Allocator>
+void uninitialized_default_alloc(ForwardIterator first, ForwardIterator last, 
+                                 Allocator& alloc) {
+  ForwardIterator current = first;
+  try {
+    for (; current != last; ++current) {
+      zstd::allocator_traits<Allocator>::construct(alloc, 
+        zstd::addressof(*current));
+    }
+  } catch (...) {
+    zstd::internal::destroy(first, current, alloc);
+    throw;
+  }
+}
+template <typename ForwardIterator, typename Tp>
+inline void uninititalized_default_alloc(ForwardIterator first,
+  ForwardIterator last, zstd::allocator<Tp>&) {
+  uninitialized_default(first, last);
+}
+
+/* uninitialized_default_n */
+template <typename ForwardIterator, typename Size, typename Allocator>
+void uninitialized_default_n_alloc(ForwardIterator first, Size n,
+                                   Allocator& alloc) {
+  ForwardIterator current;
+  try {
+    for (; n > 0; --n, ++current) {
+      zstd::allocator_traits<Allocator>::construct(alloc,
+        zstd::addressof(*current));
+    }
+  } catch (...) {
+    zstd::internal::destroy(first, current, alloc);
+    throw;
+  }
+}
+template <typename ForwardIterator, typename Size, typename Tp>
+inline void uninitialized_default_n_alloc(ForwardIterator first, Size n,
+                                          zstd::allocator<Tp>&) {
+  uninitialized_default_n(first, n);
+}
+
+/* copy_n */
 
 }  // namespace internal
 
