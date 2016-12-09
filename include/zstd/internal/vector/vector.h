@@ -18,6 +18,7 @@
 #include "../utility/initializer_list.h"
 #include "../algorithm/basic_sequence_modifier.h"
 
+#include <iostream>
 
 namespace zstd {
 
@@ -137,11 +138,15 @@ public:
     Base(n, alloc) {
     default_initialize(n);
   }
-  vector(size_type n, const Tp& value, 
+  vector(size_type n, const value_type& value, 
          const allocator_type& alloc = allocator_type()) : Base(n, alloc) {
     fill_initialize(n, value);
   }
-  template <typename InputIterator>
+  template <typename InputIterator,
+            typename = 
+            typename enable_if<is_convertible<
+            typename iterator_traits<InputIterator>::iterator_category,
+            input_iterator_tag>::value>::type>
   vector(InputIterator first, InputIterator last, 
          const allocator_type& alloc = allocator_type()) : Base(alloc) {
     initialize_dispatch(first, last, zstd::false_type());
@@ -256,8 +261,16 @@ public:
     return size_type(this->impl_.end_of_storage_ - this->impl_.begin_);
   }
   
-  void reserve(size_type n) {}
-  void shrink_to_fit() noexcept {}
+  void reserve(size_type n) {
+    check_len(n);
+    if (capacity() < n) {
+      const size_type old_size = size();
+      // TODO
+    }
+  }
+  void shrink_to_fit() noexcept {
+    // TODO
+  }
   
   reference operator[](size_type n) noexcept {
     return *(this->impl_.begin_ + n);
@@ -292,7 +305,7 @@ public:
   
   iterator insert(const_iterator position, const value_type& value) {
     const size_type n = position - begin();
-    if (this->impl_.end_ != this->impl_.end_of_storage_ && position != end()) {
+    if (this->impl_.end_ != this->impl_.end_of_storage_ && position == end()) {
       Alloc_traits::construct(this->impl_, this->impl_.end_, value);
       this->impl_.end_ += 1;
     } else {
@@ -393,7 +406,8 @@ public:
   
   void swap(vector& other) {
     this->impl_.swap(other.impl_);
-    Alloc_traits::swap(get_Tp_allocator(), other.get_Tp_allocator());
+    swap_allocator(get_Tp_allocator(), other.get_Tp_allocator(),
+      typename Alloc_traits::propagate_on_container_swap());
   }
 
 protected:
@@ -516,7 +530,7 @@ protected:
     }
   }
   
-  void check_len(size_type len, const char* info) const {
+  void check_len(size_type len, const char* info = "") const {
     if (max_size() - size() < len) {
       throw;
     }
@@ -524,6 +538,11 @@ protected:
   size_type get_len(size_type n) {
     const size_type len = (n < size()) ? 2 * size() : size() + n;
     return (len < size() || len > max_size()) ? max_size() : len;
+  }
+
+  bool shrink_to_fit_aux() {
+    if (capacity() == size()) return false;
+    // TODO
   }
 
   template <typename Tp1>
@@ -600,7 +619,7 @@ protected:
       zstd::internal::destroy(this->impl_.begin_, this->impl_.end_,
         get_Tp_allocator());
       deallocate(this->impl_.begin_, 
-        this->impl_.end_of_storage_ - this.impl_.begin_);
+        this->impl_.end_of_storage_ - this->impl_.begin_);
       this->impl_.begin_ = new_begin;
       this->impl_.end_ = new_end;
       this->impl_.end_of_storage_ = new_begin + len;
@@ -765,16 +784,16 @@ protected:
 
   iterator erase_aux(iterator position) {
     if (position + 1 != end()) {
-      zstd::move_backward(position + 1, end(), position);
-      --(this->impl_.end_);
-      Alloc_traits::destroy(this->impl_, this->impl_.end_);
-      return position;
+      zstd::move(position + 1, end(), position);
     }
+    this->impl_.end_ -= 1;
+    Alloc_traits::destroy(this->impl_, this->impl_.end_);
+    return position;    
   }
   iterator erase_aux(iterator first, iterator last) {
     if (first != last) {
       if (last != end()) {
-        zstd::move_backward(last, end(), first);
+        zstd::move(last, end(), first);
       }
       erase_at_end(first.base() + (end() - last));
     }
@@ -815,6 +834,15 @@ protected:
     this->impl_.end_ = new_end;
     this->impl_.end_of_storage_ = new_begin + len;
   }
+
+  void swap_allocator(Tp_allocator_type& x, Tp_allocator_type& y, 
+                      zstd::true_type) {
+    Tp_allocator_type x_copy(x);
+    x = y;
+    y = x_copy;
+  }
+  void swap_allocator(Tp_allocator_type&, Tp_allocator_type&, 
+                      zstd::false_type) {}
 };
 
 template <typename Tp, typename Allocator>

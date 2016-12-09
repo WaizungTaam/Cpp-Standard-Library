@@ -1,5 +1,9 @@
 /* 2016-12-02 */
 
+#ifdef ZTEST_PRINT
+#include <iostream>
+#endif  // ZTEST_PRINT
+
 namespace ztest {
 
 #include <stdarg.h>
